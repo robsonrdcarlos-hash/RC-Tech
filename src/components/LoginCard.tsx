@@ -3,10 +3,10 @@ import { useAuth } from '@/context/AuthContext'
 import { ShieldCheck, Mail, Lock, AlertCircle, ArrowRight, Loader2, Cpu } from 'lucide-react'
 
 interface LoginCardProps {
-  onNavigateToSignup: () => void
+  onNavigateToSignup?: () => void
 }
 
-export const LoginCard: React.FC<LoginCardProps> = ({ onNavigateToSignup }) => {
+export const LoginCard: React.FC<LoginCardProps> = () => {
   const { login } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -120,14 +120,8 @@ export const LoginCard: React.FC<LoginCardProps> = ({ onNavigateToSignup }) => {
 
         <div className="mt-6 pt-6 border-t border-slate-800/80 text-center">
           <p className="text-xs text-slate-400">
-            Não tem uma conta cadastrada?{' '}
-            <button
-              type="button"
-              onClick={onNavigateToSignup}
-              className="text-cyan-400 hover:text-cyan-300 font-semibold hover:underline inline-flex items-center gap-1 cursor-pointer transition-colors"
-            >
-              Cadastre-se
-            </button>
+            Acesso restrito a colaboradores autorizados.<br />
+            <span className="text-slate-500">Solicite suas credenciais ao administrador do sistema.</span>
           </p>
         </div>
       </div>

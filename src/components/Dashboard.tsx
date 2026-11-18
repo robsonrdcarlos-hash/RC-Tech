@@ -2,6 +2,13 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { sql } from '@/lib/db'
 import { ClientesModule } from './ClientesModule'
+import { UsuariosModule } from './UsuariosModule'
+import { OrdensServicoModule } from './OrdensServicoModule'
+import { ProjetosInfraModule } from './ProjetosInfraModule'
+import { VisitasTecnicasModule } from './VisitasTecnicasModule'
+import { CatalogoServicosModule } from './CatalogoServicosModule'
+import { ContratosModule } from './ContratosModule'
+import { ModuleErrorBoundary } from './ErrorBoundary'
 import {
   LayoutDashboard,
   Users,
@@ -26,7 +33,8 @@ import {
   User,
   Info,
   Menu,
-  X
+  X,
+  UserCheck
 } from 'lucide-react'
 
 // Interfaces dos dados do Dashboard
@@ -75,14 +83,64 @@ export interface OSUrgenteOuAtrasada {
   isAtrasada: boolean
 }
 
-type MenuSection = 'dashboard' | 'clientes' | 'os' | 'projetos' | 'visitas' | 'catalogo' | 'contratos'
+type MenuSection = 'dashboard' | 'clientes' | 'os' | 'projetos' | 'visitas' | 'catalogo' | 'contratos' | 'usuarios'
+
+const VALID_MENUS: MenuSection[] = [
+  'dashboard',
+  'clientes',
+  'os',
+  'projetos',
+  'visitas',
+  'catalogo',
+  'contratos',
+  'usuarios',
+]
+
+const getInitialMenu = (): MenuSection => {
+  try {
+    const hash = window.location.hash.replace('#', '') as MenuSection
+    if (VALID_MENUS.includes(hash)) {
+      return hash
+    }
+    const saved = localStorage.getItem('rctech_active_menu') as MenuSection
+    if (VALID_MENUS.includes(saved)) {
+      return saved
+    }
+  } catch {
+    // fallback
+  }
+  return 'dashboard'
+}
 
 export const Dashboard: React.FC = () => {
   const { session, logout } = useAuth()
   const tecnico = session?.tecnico
   const user = session?.user
 
-  const [activeMenu, setActiveMenu] = useState<MenuSection>('dashboard')
+  const [activeMenu, setActiveMenuState] = useState<MenuSection>(getInitialMenu)
+
+  const setActiveMenu = (menu: MenuSection) => {
+    setActiveMenuState(menu)
+    try {
+      localStorage.setItem('rctech_active_menu', menu)
+      window.location.hash = menu
+    } catch {
+      // ignore
+    }
+  }
+
+  // Sincroniza hash na URL para restaurar tela após refresh (F5) ou voltar no histórico
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.replace('#', '') as MenuSection
+      if (VALID_MENUS.includes(hash)) {
+        setActiveMenuState(hash)
+        localStorage.setItem('rctech_active_menu', hash)
+      }
+    }
+    window.addEventListener('hashchange', handleHashChange)
+    return () => window.removeEventListener('hashchange', handleHashChange)
+  }, [])
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -107,7 +165,7 @@ export const Dashboard: React.FC = () => {
     detalhes: Record<string, string | number | null | undefined>
   } | null>(null)
 
-  const isAdmin = tecnico?.nivel_acesso === 'admin'
+  const isAdmin = tecnico?.nivel_acesso?.toLowerCase() === 'admin'
   const tecnicoId = tecnico?.id
 
   // Carrega dados do Neon com respeito a RLS / Nível de Acesso
@@ -391,7 +449,7 @@ export const Dashboard: React.FC = () => {
   }
 
   // Itens do Menu Lateral Requeridos
-  const navMenuItems = [
+  const baseMenuItems = [
     { id: 'dashboard' as MenuSection, label: 'Dashboard', icon: LayoutDashboard },
     { id: 'clientes' as MenuSection, label: 'Clientes', icon: Users },
     { id: 'os' as MenuSection, label: 'Ordens de Serviço (OS)', icon: Wrench, badge: osSummary.total },
@@ -400,6 +458,13 @@ export const Dashboard: React.FC = () => {
     { id: 'catalogo' as MenuSection, label: 'Catálogo / Serviços', icon: Layers },
     { id: 'contratos' as MenuSection, label: 'Contratos', icon: FileCheck2 },
   ]
+
+  const navMenuItems = isAdmin
+    ? [
+        ...baseMenuItems,
+        { id: 'usuarios' as MenuSection, label: 'Gestão de Usuários', icon: UserCheck },
+      ]
+    : baseMenuItems
 
   // Render do conteúdo do item selecionado / modal
   const renderDetailsModal = () => {
@@ -695,34 +760,31 @@ export const Dashboard: React.FC = () => {
           </div>
         </header>
 
-        {/* Conteúdo dinâmico: Se não for dashboard, mostrar tela de módulo */}
-        {activeMenu === 'clientes' ? (
-          <ClientesModule />
-        ) : activeMenu !== 'dashboard' ? (
-          <div className="p-6 md:p-8 flex-1">
-            <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-8 max-w-2xl">
-              <div className="w-12 h-12 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 flex items-center justify-center mb-4">
-                <Info className="w-6 h-6" />
-              </div>
-              <h2 className="text-xl font-bold text-white mb-2">
-                Módulo: {navMenuItems.find((m) => m.id === activeMenu)?.label}
-              </h2>
-              <p className="text-slate-400 text-sm mb-6 leading-relaxed">
-                Você navegou para a seção de gerenciamento correspondente. Os dados para este módulo estão integrados e persistidos no Neon Database PostgreSQL.
-              </p>
-              <button
-                onClick={() => setActiveMenu('dashboard')}
-                className="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs transition cursor-pointer inline-flex items-center gap-2"
-              >
-                <span>Voltar ao Dashboard Principal</span>
-              </button>
-            </div>
-          </div>
-        ) : (
-          /* ============================================================== */
-          /* TELA PRINCIPAL DO DASHBOARD                                   */
-          /* ============================================================== */
-          <div className="p-6 md:p-8 space-y-8 flex-1">
+        {/* Conteúdo dinâmico: Renderização dos Módulos Operacionais com Proteção contra Falhas */}
+        <ModuleErrorBoundary
+          key={activeMenu}
+          moduleName={navMenuItems.find((m) => m.id === activeMenu)?.label || activeMenu}
+          onReset={() => loadDashboardData()}
+        >
+          {activeMenu === 'clientes' ? (
+            <ClientesModule />
+          ) : activeMenu === 'os' ? (
+            <OrdensServicoModule />
+          ) : activeMenu === 'projetos' ? (
+            <ProjetosInfraModule />
+          ) : activeMenu === 'visitas' ? (
+            <VisitasTecnicasModule />
+          ) : activeMenu === 'catalogo' ? (
+            <CatalogoServicosModule />
+          ) : activeMenu === 'contratos' ? (
+            <ContratosModule />
+          ) : activeMenu === 'usuarios' && isAdmin ? (
+            <UsuariosModule />
+          ) : (
+            /* ============================================================== */
+            /* TELA PRINCIPAL DO DASHBOARD                                   */
+            /* ============================================================== */
+            <div className="p-6 md:p-8 space-y-8 flex-1">
             {/* Banner Superior com Atalhos Rápidos */}
             <div className="bg-gradient-to-r from-slate-900 via-slate-900/90 to-blue-950/40 border border-cyan-500/20 rounded-2xl p-6 relative overflow-hidden shadow-xl">
               <div className="absolute right-0 top-0 translate-x-12 -translate-y-12 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
@@ -1236,6 +1298,7 @@ export const Dashboard: React.FC = () => {
             </div>
           </div>
         )}
+        </ModuleErrorBoundary>
 
         {/* Rodapé Interno */}
         <footer className="border-t border-slate-900 px-6 py-4 text-center text-xs text-slate-400 flex flex-col sm:flex-row justify-between items-center gap-2">

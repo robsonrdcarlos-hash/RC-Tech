@@ -1,13 +1,10 @@
-import { useState } from 'react'
 import { AuthProvider, useAuth } from '@/context/AuthContext'
 import { LoginCard } from '@/components/LoginCard'
-import { SignupCard } from '@/components/SignupCard'
 import { Dashboard } from '@/components/Dashboard'
 import { Loader2 } from 'lucide-react'
 
 function AuthView() {
   const { session, isLoading } = useAuth()
-  const [currentView, setCurrentView] = useState<'login' | 'signup'>('login')
 
   if (isLoading) {
     return (
@@ -38,11 +35,7 @@ function AuthView() {
       ></div>
 
       <div className="relative z-10 w-full max-w-md">
-        {currentView === 'login' ? (
-          <LoginCard onNavigateToSignup={() => setCurrentView('signup')} />
-        ) : (
-          <SignupCard onNavigateToLogin={() => setCurrentView('login')} />
-        )}
+        <LoginCard />
       </div>
     </div>
   )
